@@ -90,6 +90,8 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
   <input id="sTitle" placeholder="Titel (optional)">
   <textarea id="sText" placeholder="Skript hier einfügen …"></textarea>
   <button class="btn-gold" id="sGo">Aufnehmen</button>
+  <button class="btn-gray hidden" id="installBtn" style="border:2px solid var(--gold);color:var(--gold);font-weight:700">📲 Als App aufs Handy installieren</button>
+  <p class="hidden" id="installHelp" style="font-size:14px">Falls kein Knopf erscheint: oben rechts auf <b>⋮</b> tippen → <b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b>.</p>
 </section>
 
 <!-- Aufnahme -->
@@ -326,8 +328,17 @@ $('fsBtn').onclick=async()=>{try{if(!document.fullscreenElement)await document.d
 window.addEventListener('beforeunload',e=>{if(S.segs.length||S.recording){e.preventDefault();e.returnValue=''}});
 window.addEventListener('hashchange',()=>{if(parseHash()&&!S.recording){S.segs=[];renderSegs();openRecorder()}});
 
+/* ---------- Als App installieren ---------- */
+let installEvt=null;
+const isApp=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;$('installBtn').classList.remove('hidden');$('installHelp').classList.add('hidden')});
+window.addEventListener('appinstalled',()=>{installEvt=null;$('installBtn').classList.add('hidden');toast('Installiert – das Prompter-Icon liegt jetzt auf deinem Startbildschirm')});
+$('installBtn').onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;$('installBtn').classList.add('hidden')};
+if(!isApp())setTimeout(()=>{if(!installEvt)$('installHelp').classList.remove('hidden')},2500);
+
 /* ---------- Los ---------- */
 loadPrefs();
+if(new URLSearchParams(location.search).has('install'))history.replaceState(null,'',location.pathname);
 if(parseHash())openRecorder();else showStart();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
