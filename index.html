@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>Prompter</title>
+<style>
+:root{--bg:#000;--card:#1C1C1E;--card2:#2C2C2E;--fg:#fff;--muted:#8E8E93;--gold:#FFD60A;--red:#FF3B30;--green:#30D158;--blue:#0A84FF}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:-apple-system,system-ui,Roboto,"Segoe UI",sans-serif;overflow:hidden;overscroll-behavior:none}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+.hidden{display:none!important}
+/* Start screen */
+#start{position:fixed;inset:0;display:flex;flex-direction:column;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));gap:12px;overflow:auto}
+#start h1{font-size:34px;margin:8px 0 0}
+#start p{color:var(--muted);margin:0;line-height:1.4}
+#start input,#start textarea{width:100%;background:var(--card);color:var(--fg);border:0;border-radius:12px;padding:14px;font:inherit;font-size:17px}
+#start textarea{flex:1;min-height:200px;resize:none;line-height:1.4}
+.btn-gold{background:var(--gold);color:#000;font-weight:700;border-radius:14px;padding:16px;font-size:17px;text-align:center}
+.btn-gray{background:var(--card);border-radius:14px;padding:16px;font-size:17px;text-align:center}
+/* Recorder */
+#rec{position:fixed;inset:0;background:#000}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#cam.mirror{transform:scaleX(-1)}
+#camErr{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:32px;color:var(--muted);line-height:1.5}
+.top{position:absolute;left:0;right:0;top:0;padding:calc(10px + env(safe-area-inset-top)) 14px 0;display:flex;align-items:center;justify-content:space-between;z-index:5}
+.circ{width:40px;height:40px;border-radius:50%;background:rgba(44,44,46,.85);display:flex;align-items:center;justify-content:center}
+.circ svg{width:20px;height:20px}
+.seg{display:flex;background:rgba(44,44,46,.85);border-radius:20px;padding:3px}
+.seg button{padding:7px 16px;border-radius:17px;font-size:15px;font-weight:600;color:#ddd}
+.seg button.on{background:#636366;color:#fff}
+.seg button:disabled{opacity:.4}
+#prompt{position:absolute;left:12px;right:12px;top:calc(60px + env(safe-area-inset-top));height:38vh;background:rgba(0,0,0,.62);border-radius:18px;overflow:hidden;z-index:4;display:flex;flex-direction:column}
+#viewport{position:relative;flex:1;overflow:hidden;touch-action:none}
+#ptext{position:absolute;left:0;right:0;top:0;padding:14px 16px 60vh;font-size:var(--fs,24px);line-height:1.38;font-weight:600;white-space:pre-wrap;will-change:transform}
+#viewport::before{content:"";position:absolute;left:0;right:0;top:0;height:18px;background:linear-gradient(rgba(0,0,0,.6),transparent);z-index:1;pointer-events:none}
+.pbar{display:flex;align-items:center;gap:6px;padding:6px 10px;border-top:1px solid rgba(255,255,255,.08)}
+.pbar .ico{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:10px}
+.pbar .ico svg{width:20px;height:20px}
+.pbar .sp{flex:1}
+#speedVal{min-width:30px;text-align:center;font-variant-numeric:tabular-nums;font-weight:700}
+#prompt.off #viewport{visibility:hidden}
+#prompt.off{height:auto}
+.bottom{position:absolute;left:0;right:0;bottom:0;padding:0 20px calc(26px + env(safe-area-inset-bottom));display:flex;align-items:flex-end;justify-content:center;z-index:5}
+#timer{position:absolute;bottom:calc(122px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:rgba(28,28,30,.85);border-radius:16px;padding:6px 14px;font-weight:600;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:8px;z-index:5}
+#timer i{width:9px;height:9px;border-radius:50%;background:var(--red);display:inline-block}
+#recBtn{width:78px;height:78px;border-radius:50%;border:5px solid #fff;display:flex;align-items:center;justify-content:center}
+#recBtn span{width:60px;height:60px;border-radius:50%;background:var(--red);transition:all .2s}
+#recBtn.on span{width:30px;height:30px;border-radius:7px}
+#segs{position:absolute;left:18px;bottom:calc(26px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:flex-start;gap:6px;z-index:5}
+#thumbs{display:flex;gap:6px;flex-wrap:wrap;max-width:110px}
+.thumb{position:relative;width:46px;height:62px;border-radius:9px;background:#333 center/cover;border:2px solid #fff}
+.thumb b{position:absolute;top:-8px;left:-8px;width:22px;height:22px;border-radius:50%;background:#1C1C1E;border:1px solid #555;font-size:12px;display:flex;align-items:center;justify-content:center}
+#total{font-size:14px;font-weight:600;background:rgba(28,28,30,.85);padding:3px 8px;border-radius:8px;font-variant-numeric:tabular-nums}
+#doneBtn{position:absolute;right:22px;bottom:calc(36px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;z-index:5}
+#doneBtn svg{width:28px;height:28px}
+/* Sheets / dialogs */
+.dim{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.dim.center{align-items:center}
+.sheet{background:#1C1C1E;width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
+.dlg{background:#2C2C2E;border-radius:16px;width:min(320px,90vw);text-align:center;overflow:hidden}
+.dlg h3{margin:18px 16px 6px;font-size:17px}
+.dlg p{margin:0 16px 16px;color:var(--muted);font-size:14px;line-height:1.4}
+.dlg .row{display:flex;border-top:1px solid #444}
+.dlg .row button{flex:1;padding:13px;font-size:17px}
+.dlg .row button+button{border-left:1px solid #444}
+.sheet h3{margin:0 0 12px;font-size:20px}
+.sheet textarea{width:100%;min-height:40vh;background:#000;color:#fff;border:0;border-radius:12px;padding:12px;font:inherit;font-size:17px;line-height:1.4;resize:vertical}
+.sheet .bar{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.sheet .bar>*{flex:1}
+.part{display:flex;align-items:center;gap:10px;background:#2C2C2E;border-radius:12px;padding:10px;margin-bottom:8px}
+.part .t{flex:1;font-size:15px}
+.part .t small{display:block;color:var(--muted)}
+.part button{background:var(--gold);color:#000;font-weight:700;padding:8px 12px;border-radius:10px;font-size:14px}
+.note{color:var(--muted);font-size:13px;line-height:1.4;margin:10px 0 0}
+.fsrow{display:flex;align-items:center;gap:10px;margin-top:12px}
+.fsrow button{background:#2C2C2E;border-radius:10px;padding:8px 14px;font-weight:700}
+#toast{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);background:#2C2C2E;padding:10px 16px;border-radius:12px;z-index:30;font-size:15px;max-width:90vw;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- Startbildschirm (wenn kein Skript mitgegeben wurde) -->
+<section id="start" class="hidden">
+  <h1>Prompter</h1>
+  <p>Öffne ein Skript aus deinem Skript-Board – oder füge hier einen Text ein.</p>
+  <input id="sTitle" placeholder="Titel (optional)">
+  <textarea id="sText" placeholder="Skript hier einfügen …"></textarea>
+  <button class="btn-gold" id="sGo">Aufnehmen</button>
+</section>
+
+<!-- Aufnahme -->
+<section id="rec" class="hidden">
+  <video id="cam" playsinline muted autoplay></video>
+  <div id="camErr" class="hidden"></div>
+
+  <div class="top">
+    <button class="circ" id="closeBtn" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="seg"><button id="camFront" class="on">Front</button><button id="camBack">Rück</button></div>
+    <button class="circ" id="fsBtn" aria-label="Vollbild" style="background:var(--gold)"><svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M6 19c1.2-3 3.5-4.5 6-4.5s4.8 1.5 6 4.5"/><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/></svg></button>
+  </div>
+
+  <div id="prompt">
+    <div id="viewport"><div id="ptext"></div></div>
+    <div class="pbar">
+      <button class="ico" id="eyeBtn" aria-label="Text ein/aus"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      <div class="sp"></div>
+      <button class="ico" id="editBtn" aria-label="Bearbeiten"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg></button>
+      <button class="ico" id="minusBtn" aria-label="Langsamer"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12"/></svg></button>
+      <span id="speedVal">40</span>
+      <button class="ico" id="plusBtn" aria-label="Schneller"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M6 12h12M12 6v12"/></svg></button>
+      <button class="ico" id="playBtn" aria-label="Scrollen starten/stoppen"><svg id="playIco" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></button>
+    </div>
+  </div>
+
+  <div id="timer" class="hidden"><i></i><span id="timerVal">0:00</span></div>
+  <div id="segs" class="hidden"><div id="thumbs"></div><div id="total">0:00</div></div>
+  <div class="bottom"><button id="recBtn" aria-label="Aufnahme"><span></span></button></div>
+  <button id="doneBtn" class="hidden" aria-label="Fertig"><svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+</section>
+
+<div id="toast" class="hidden"></div>
+
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const S={title:'',text:'',facing:'user',stream:null,rec:null,chunks:[],segs:[],recording:false,
+  scrolling:false,offset:0,speed:40,fs:24,lastT:0,recStart:0,timerI:null,wakeLock:null};
+
+/* ---------- Einstellungen merken ---------- */
+function loadPrefs(){try{const p=JSON.parse(localStorage.getItem('prompterPrefs')||'{}');if(p.speed)S.speed=p.speed;if(p.fs)S.fs=p.fs;if(p.facing)S.facing=p.facing}catch(e){}}
+function savePrefs(){try{localStorage.setItem('prompterPrefs',JSON.stringify({speed:S.speed,fs:S.fs,facing:S.facing}))}catch(e){}}
+
+function toast(t,ms=2200){const el=$('toast');el.textContent=t;el.classList.remove('hidden');clearTimeout(toast.i);toast.i=setTimeout(()=>el.classList.add('hidden'),ms)}
+const fmt=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+
+/* ---------- Start ---------- */
+function parseHash(){
+  const h=location.hash.slice(1);if(!h)return false;
+  const q=new URLSearchParams(h);const s=q.get('s');if(!s)return false;
+  S.title=q.get('t')||'';S.text=s;return true;
+}
+function showStart(){
+  $('rec').classList.add('hidden');$('start').classList.remove('hidden');
+  try{const d=JSON.parse(localStorage.getItem('prompterDraft')||'{}');if(d.text){$('sTitle').value=d.title||'';$('sText').value=d.text}}catch(e){}
+}
+$('sGo').onclick=()=>{
+  const t=$('sText').value.trim();if(!t){toast('Bitte erst einen Text einfügen');return}
+  S.title=$('sTitle').value.trim();S.text=t;
+  try{localStorage.setItem('prompterDraft',JSON.stringify({title:S.title,text:S.text}))}catch(e){}
+  openRecorder();
+};
+
+/* ---------- Kamera ---------- */
+async function startCam(){
+  if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null}
+  $('camErr').classList.add('hidden');
+  try{
+    S.stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:S.facing,width:{ideal:1080},height:{ideal:1920},frameRate:{ideal:30}},
+      audio:{echoCancellation:true,noiseSuppression:true}
+    });
+    const v=$('cam');v.srcObject=S.stream;v.classList.toggle('mirror',S.facing==='user');
+    await v.play().catch(()=>{});
+  }catch(e){
+    const el=$('camErr');el.classList.remove('hidden');
+    el.innerHTML='Kamera oder Mikrofon nicht freigegeben.<br><br>Tipp oben in Chrome auf das Schloss-Symbol → <b>Berechtigungen</b> → Kamera und Mikrofon erlauben, dann Seite neu laden.<br><br><small>('+e.name+')</small>';
+  }
+  $('camFront').classList.toggle('on',S.facing==='user');$('camBack').classList.toggle('on',S.facing!=='user');
+}
+$('camFront').onclick=()=>{if(S.recording)return;S.facing='user';savePrefs();startCam()};
+$('camBack').onclick=()=>{if(S.recording)return;S.facing='environment';savePrefs();startCam()};
+
+async function keepAwake(){try{if('wakeLock' in navigator&&!S.wakeLock){S.wakeLock=await navigator.wakeLock.request('screen');S.wakeLock.addEventListener('release',()=>S.wakeLock=null)}}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&!$('rec').classList.contains('hidden'))keepAwake()});
+
+function openRecorder(){
+  $('start').classList.add('hidden');$('rec').classList.remove('hidden');
+  document.title=S.title?S.title+' · Prompter':'Prompter';
+  $('ptext').textContent=S.text;setFs(S.fs);$('speedVal').textContent=S.speed;
+  S.offset=0;applyOffset();startCam();keepAwake();
+}
+
+/* ---------- Teleprompter-Scroll ---------- */
+function maxOffset(){const p=$('ptext');return Math.max(0,p.scrollHeight-window.innerHeight*0.6-40)}
+function applyOffset(){S.offset=Math.min(Math.max(0,S.offset),maxOffset()+40);$('ptext').style.transform='translateY('+(-S.offset)+'px)'}
+function pxPerSec(){return S.speed*1.1}
+function tick(t){
+  if(!S.scrolling)return;
+  const dt=S.lastT?(t-S.lastT)/1000:0;S.lastT=t;
+  S.offset+=pxPerSec()*dt;applyOffset();
+  if(S.offset>=maxOffset()+40){setScroll(false);return}
+  requestAnimationFrame(tick);
+}
+function setScroll(on){
+  S.scrolling=on;S.lastT=0;
+  $('playIco').innerHTML=on?'<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>';
+  if(on)requestAnimationFrame(tick);
+}
+$('playBtn').onclick=()=>setScroll(!S.scrolling);
+$('minusBtn').onclick=()=>{S.speed=Math.max(5,S.speed-5);$('speedVal').textContent=S.speed;savePrefs()};
+$('plusBtn').onclick=()=>{S.speed=Math.min(150,S.speed+5);$('speedVal').textContent=S.speed;savePrefs()};
+$('eyeBtn').onclick=()=>$('prompt').classList.toggle('off');
+function setFs(n){S.fs=Math.min(44,Math.max(16,n));$('ptext').style.setProperty('--fs',S.fs+'px');savePrefs()}
+
+// Text mit dem Finger verschieben, Tippen = Pause/Weiter
+(function(){
+  const vp=$('viewport');let y0=null,o0=0,moved=false;
+  vp.addEventListener('pointerdown',e=>{y0=e.clientY;o0=S.offset;moved=false;vp.setPointerCapture(e.pointerId)});
+  vp.addEventListener('pointermove',e=>{if(y0===null)return;const d=e.clientY-y0;if(Math.abs(d)>6)moved=true;if(moved){S.offset=o0-d;applyOffset()}});
+  vp.addEventListener('pointerup',()=>{if(y0!==null&&!moved)setScroll(!S.scrolling);y0=null});
+  vp.addEventListener('pointercancel',()=>{y0=null});
+})();
+
+/* ---------- Text bearbeiten ---------- */
+$('editBtn').onclick=()=>{
+  setScroll(false);
+  const d=document.createElement('div');d.className='dim';
+  d.innerHTML='<div class="sheet"><h3>Text bearbeiten</h3><textarea id="edT"></textarea>'+
+   '<div class="fsrow"><span style="color:var(--muted)">Schriftgröße</span><button id="fsM">A−</button><span id="fsV"></span><button id="fsP">A+</button></div>'+
+   '<div class="bar"><button class="btn-gray" id="edTop">Zum Anfang</button><button class="btn-gray" id="edX">Abbrechen</button><button class="btn-gold" id="edOk">Übernehmen</button></div></div>';
+  document.body.appendChild(d);
+  const ta=d.querySelector('#edT');ta.value=S.text;
+  const fv=d.querySelector('#fsV');fv.textContent=S.fs;
+  d.querySelector('#fsM').onclick=()=>{setFs(S.fs-2);fv.textContent=S.fs};
+  d.querySelector('#fsP').onclick=()=>{setFs(S.fs+2);fv.textContent=S.fs};
+  d.querySelector('#edTop').onclick=()=>{S.offset=0;applyOffset();d.remove()};
+  d.querySelector('#edX').onclick=()=>d.remove();
+  d.querySelector('#edOk').onclick=()=>{S.text=ta.value;$('ptext').textContent=S.text;applyOffset();d.remove()};
+  d.addEventListener('click',e=>{if(e.target===d)d.remove()});
+};
+
+/* ---------- Aufnahme ---------- */
+function pickMime(){
+  const c=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  for(const m of c){try{if(window.MediaRecorder&&MediaRecorder.isTypeSupported(m))return m}catch(e){}}
+  return '';
+}
+function grabThumb(){
+  try{const v=$('cam');const c=document.createElement('canvas');c.width=92;c.height=124;const x=c.getContext('2d');
+    const r=v.videoWidth/v.videoHeight,cr=c.width/c.height;let sw=v.videoWidth,sh=v.videoHeight,sx=0,sy=0;
+    if(r>cr){sw=sh*cr;sx=(v.videoWidth-sw)/2}else{sh=sw/cr;sy=(v.videoHeight-sh)/2}
+    if(S.facing==='user'){x.translate(c.width,0);x.scale(-1,1)}
+    x.drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.6)}catch(e){return ''}
+}
+function startRec(){
+  if(!S.stream){toast('Kamera ist noch nicht bereit');return}
+  if(!window.MediaRecorder){toast('Dieser Browser kann nicht aufnehmen');return}
+  const mime=pickMime();
+  try{S.rec=new MediaRecorder(S.stream,mime?{mimeType:mime,videoBitsPerSecond:8000000}:{})}catch(e){S.rec=new MediaRecorder(S.stream)}
+  S.chunks=[];const thumb=grabThumb();
+  S.rec.ondataavailable=e=>{if(e.data&&e.data.size)S.chunks.push(e.data)};
+  S.rec.onstop=()=>{
+    const type=(S.rec.mimeType||mime||'video/webm').split(';')[0];
+    const blob=new Blob(S.chunks,{type});const dur=(Date.now()-S.recStart)/1000;
+    if(blob.size>0)S.segs.push({blob,dur,thumb,type});renderSegs();
+  };
+  S.rec.start(1000);S.recording=true;S.recStart=Date.now();
+  $('recBtn').classList.add('on');$('timer').classList.remove('hidden');$('timerVal').textContent='0:00';
+  S.timerI=setInterval(()=>$('timerVal').textContent=fmt((Date.now()-S.recStart)/1000),250);
+  $('camFront').disabled=$('camBack').disabled=true;$('doneBtn').classList.add('hidden');$('segs').classList.add('hidden');
+  setScroll(true);keepAwake();
+}
+function stopRec(){
+  if(!S.rec)return;try{S.rec.stop()}catch(e){}
+  S.recording=false;clearInterval(S.timerI);setScroll(false);
+  $('recBtn').classList.remove('on');$('timer').classList.add('hidden');
+  $('camFront').disabled=$('camBack').disabled=false;
+}
+$('recBtn').onclick=()=>S.recording?stopRec():startRec();
+
+function renderSegs(){
+  const th=$('thumbs');th.innerHTML='';
+  S.segs.forEach((s,i)=>{const d=document.createElement('div');d.className='thumb';if(s.thumb)d.style.backgroundImage='url('+s.thumb+')';
+    const b=document.createElement('b');b.textContent='✕';b.onclick=()=>confirmDlg('Teil '+(i+1)+' löschen?','Diese Aufnahme ist dann weg.','Löschen',()=>{S.segs.splice(i,1);renderSegs()});d.appendChild(b);th.appendChild(d)});
+  const has=S.segs.length>0;
+  $('segs').classList.toggle('hidden',!has||S.recording);$('doneBtn').classList.toggle('hidden',!has||S.recording);
+  $('total').textContent=fmt(S.segs.reduce((a,s)=>a+s.dur,0));
+}
+
+function confirmDlg(title,text,okLabel,onOk){
+  const d=document.createElement('div');d.className='dim center';
+  d.innerHTML='<div class="dlg"><h3></h3><p></p><div class="row"><button class="x">Abbrechen</button><button class="ok" style="color:var(--red);font-weight:600"></button></div></div>';
+  d.querySelector('h3').textContent=title;d.querySelector('p').textContent=text;d.querySelector('.ok').textContent=okLabel;
+  d.querySelector('.x').onclick=()=>d.remove();d.querySelector('.ok').onclick=()=>{d.remove();onOk()};
+  document.body.appendChild(d);
+}
+
+$('closeBtn').onclick=()=>{
+  const leave=()=>{if(S.recording)stopRec();S.segs=[];renderSegs();if(S.stream)S.stream.getTracks().forEach(t=>t.stop());S.stream=null;history.replaceState(null,'',location.pathname);showStart()};
+  if(S.segs.length||S.recording)confirmDlg('Aufnahmen verwerfen?','Alle Teile dieser Aufnahme werden gelöscht.','Verwerfen',leave);else leave();
+};
+
+/* ---------- Fertig: speichern / teilen ---------- */
+function safeName(){return (S.title||'reel').replace(/[^\wäöüÄÖÜß\- ]+/g,'').trim().replace(/\s+/g,'_').slice(0,50)||'reel'}
+function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())}
+function fileFor(s,i,n){const ext=s.type.includes('mp4')?'mp4':'webm';return new File([s.blob],safeName()+'_'+stamp()+(n>1?'_teil'+(i+1):'')+'.'+ext,{type:s.type})}
+function download(f){const u=URL.createObjectURL(f);const a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)}
+
+$('doneBtn').onclick=()=>{
+  const n=S.segs.length;const files=S.segs.map((s,i)=>fileFor(s,i,n));
+  const d=document.createElement('div');d.className='dim';
+  let h='<div class="sheet"><h3>Aufnahme fertig</h3>';
+  files.forEach((f,i)=>{h+='<div class="part"><div class="t">'+(n>1?'Teil '+(i+1):'Video')+'<small>'+fmt(S.segs[i].dur)+' · '+(f.size/1048576).toFixed(1)+' MB</small></div><button data-i="'+i+'">Speichern</button></div>'});
+  h+='<div class="bar"><button class="btn-gold" id="shAll">Alle teilen</button><button class="btn-gray" id="dlAll">Alle speichern</button></div>';
+  h+='<div class="bar"><button class="btn-gray" id="shBack">Weiter aufnehmen</button><button class="btn-gray" id="shNew" style="color:var(--red)">Neu anfangen</button></div>';
+  h+='<p class="note">„Speichern“ legt die Videos in deinen <b>Download</b>-Ordner. „Teilen“ öffnet das Android-Menü – z.&nbsp;B. Google Drive, um sie an den PC zu schicken.'+(n>1?' Die Teile fügt Claude beim Schneiden zusammen.':'')+'</p></div>';
+  d.innerHTML=h;document.body.appendChild(d);
+  d.querySelectorAll('.part button').forEach(b=>b.onclick=()=>{download(files[+b.dataset.i]);toast('Wird gespeichert …')});
+  d.querySelector('#dlAll').onclick=()=>{files.forEach((f,i)=>setTimeout(()=>download(f),i*700));toast('Wird gespeichert …')};
+  d.querySelector('#shAll').onclick=async()=>{
+    try{if(navigator.canShare&&navigator.canShare({files})){await navigator.share({files,title:S.title||'Reel'})}else{toast('Teilen geht hier nicht – nimm „Speichern“')}}
+    catch(e){if(e.name!=='AbortError')toast('Teilen fehlgeschlagen – nimm „Speichern“')}
+  };
+  d.querySelector('#shBack').onclick=()=>d.remove();
+  d.querySelector('#shNew').onclick=()=>confirmDlg('Neu anfangen?','Alle Teile werden gelöscht. Vorher speichern!','Löschen',()=>{d.remove();S.segs=[];renderSegs();S.offset=0;applyOffset()});
+  d.addEventListener('click',e=>{if(e.target===d)d.remove()});
+};
+
+/* ---------- Kinomodus-Knopf: Vollbild ---------- */
+$('fsBtn').onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch(e){toast('Vollbild geht hier nicht')}};
+
+window.addEventListener('beforeunload',e=>{if(S.segs.length||S.recording){e.preventDefault();e.returnValue=''}});
+window.addEventListener('hashchange',()=>{if(parseHash()&&!S.recording){S.segs=[];renderSegs();openRecorder()}});
+
+/* ---------- Los ---------- */
+loadPrefs();
+if(parseHash())openRecorder();else showStart();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
